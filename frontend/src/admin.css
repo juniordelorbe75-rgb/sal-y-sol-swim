@@ -1,0 +1,1266 @@
+* {
+  box-sizing: border-box;
+}
+
+
+:root {
+  --admin-bg:
+    #fff8f8;
+
+  --admin-card:
+    #ffffff;
+
+  --admin-text:
+    #35262a;
+
+  --admin-muted:
+    #7d6a6e;
+
+  --admin-pink:
+    #eb88aa;
+
+  --admin-pink-dark:
+    #b65b7c;
+
+  --admin-pink-light:
+    #ffe7ef;
+
+  --admin-peach:
+    #f5a474;
+
+  --admin-peach-light:
+    #ffe9dc;
+
+  --admin-green:
+    #6f9b7d;
+
+  --admin-green-light:
+    #e8f5eb;
+
+  --admin-border:
+    #ecd5d9;
+
+  --admin-danger:
+    #a84761;
+
+  --admin-danger-light:
+    #fdebef;
+
+  --admin-warning:
+    #7b5d1d;
+
+  --admin-warning-light:
+    #fff3d6;
+}
+
+
+body {
+  margin: 0;
+}
+
+
+/* ---------------------------------------------------------
+   PAGE
+--------------------------------------------------------- */
+
+.admin-page,
+.admin-login-page {
+  min-height: 100vh;
+
+  font-family:
+    Inter,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+
+  background:
+    radial-gradient(
+      circle at top left,
+      rgba(
+        255,
+        221,
+        232,
+        0.6
+      ),
+      transparent 30%
+    ),
+    radial-gradient(
+      circle at bottom right,
+      rgba(
+        255,
+        221,
+        196,
+        0.55
+      ),
+      transparent 35%
+    ),
+    linear-gradient(
+      135deg,
+      #fff9fb,
+      #fff3ec
+    );
+
+  color:
+    var(--admin-text);
+}
+
+
+/* ---------------------------------------------------------
+   LOGIN
+--------------------------------------------------------- */
+
+.admin-login-page {
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  padding: 30px;
+}
+
+
+.admin-login-card {
+  width: 100%;
+  max-width: 450px;
+
+  padding: 42px;
+
+  border:
+    1px solid
+    var(--admin-border);
+
+  border-radius: 30px;
+
+  background:
+    rgba(
+      255,
+      255,
+      255,
+      0.95
+    );
+
+  box-shadow:
+    0 28px 70px
+    rgba(
+      80,
+      45,
+      55,
+      0.10
+    );
+
+  backdrop-filter:
+    blur(12px);
+}
+
+
+.admin-label {
+  margin: 0 0 8px;
+
+  color:
+    var(--admin-pink-dark);
+
+  font-size: 0.7rem;
+
+  font-weight: 900;
+
+  letter-spacing:
+    0.22rem;
+
+  text-transform:
+    uppercase;
+}
+
+
+.admin-login-card h1,
+.admin-header h1,
+.admin-section-title h2 {
+  margin: 0;
+
+  font-family:
+    Georgia,
+    "Times New Roman",
+    serif;
+
+  font-weight: 500;
+}
+
+
+.admin-login-card h1 {
+  font-size: 2.6rem;
+}
+
+
+.admin-login-card p {
+  margin-top: 14px;
+
+  color:
+    var(--admin-muted);
+
+  line-height: 1.7;
+}
+
+
+.admin-login-card input {
+  width: 100%;
+
+  margin-top: 18px;
+
+  padding:
+    14px 16px;
+
+  border:
+    1px solid
+    var(--admin-border);
+
+  border-radius: 14px;
+
+  outline: none;
+
+  background:
+    #fffafb;
+
+  color:
+    var(--admin-text);
+
+  font: inherit;
+}
+
+
+.admin-login-card input:focus {
+  border-color:
+    var(--admin-pink);
+
+  box-shadow:
+    0 0 0 3px
+    rgba(
+      235,
+      136,
+      170,
+      0.12
+    );
+}
+
+
+.admin-login-card button {
+  width: 100%;
+
+  margin-top: 16px;
+
+  padding:
+    14px;
+
+  border: 0;
+
+  border-radius: 999px;
+
+  background:
+    linear-gradient(
+      135deg,
+      var(--admin-pink),
+      var(--admin-peach)
+    );
+
+  color: white;
+
+  font-weight: 850;
+
+  transition:
+    transform 0.2s ease,
+    opacity 0.2s ease;
+}
+
+
+.admin-login-card button:hover {
+  transform:
+    translateY(-1px);
+}
+
+
+.admin-login-card button:disabled {
+  cursor:
+    not-allowed;
+
+  opacity: 0.5;
+}
+
+
+.admin-login-card a {
+  display: block;
+
+  margin-top: 20px;
+
+  color:
+    var(--admin-muted);
+
+  text-align: center;
+
+  text-decoration: none;
+
+  font-weight: 700;
+}
+
+
+/* ---------------------------------------------------------
+   HEADER
+--------------------------------------------------------- */
+
+.admin-header {
+  display: flex;
+
+  align-items: center;
+
+  justify-content:
+    space-between;
+
+  gap: 30px;
+
+  padding:
+    30px 6%;
+
+  border-bottom:
+    1px solid
+    var(--admin-border);
+
+  background:
+    rgba(
+      255,
+      255,
+      255,
+      0.90
+    );
+
+  backdrop-filter:
+    blur(12px);
+
+  position: sticky;
+
+  top: 0;
+
+  z-index: 50;
+}
+
+
+.admin-header h1 {
+  font-size: 2rem;
+}
+
+
+.admin-header-actions {
+  display: flex;
+
+  align-items: center;
+
+  gap: 12px;
+}
+
+
+.admin-header-actions a,
+.admin-header-actions button {
+  padding:
+    11px 16px;
+
+  border:
+    1px solid
+    var(--admin-border);
+
+  border-radius: 999px;
+
+  background: white;
+
+  color:
+    var(--admin-text);
+
+  text-decoration: none;
+
+  font-weight: 750;
+
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease;
+}
+
+
+.admin-header-actions a:hover,
+.admin-header-actions button:hover {
+  transform:
+    translateY(-1px);
+
+  background:
+    var(--admin-pink-light);
+}
+
+
+/* ---------------------------------------------------------
+   MAIN
+--------------------------------------------------------- */
+
+.admin-main {
+  padding:
+    50px 6%;
+}
+
+
+.admin-form-section,
+.admin-products-section {
+  max-width: 1200px;
+
+  margin:
+    0 auto 70px;
+}
+
+
+.admin-section-title {
+  display: flex;
+
+  justify-content:
+    space-between;
+
+  align-items: center;
+
+  gap: 20px;
+
+  margin-bottom: 25px;
+}
+
+
+.admin-section-title h2 {
+  font-size: 2.4rem;
+}
+
+
+.admin-section-title > span {
+  padding:
+    8px 12px;
+
+  border-radius: 999px;
+
+  background:
+    var(--admin-pink-light);
+
+  color:
+    var(--admin-pink-dark);
+
+  font-size: 0.76rem;
+
+  font-weight: 800;
+}
+
+
+/* ---------------------------------------------------------
+   PRODUCT FORM
+--------------------------------------------------------- */
+
+.product-form {
+  padding: 30px;
+
+  border:
+    1px solid
+    var(--admin-border);
+
+  border-radius: 28px;
+
+  background:
+    rgba(
+      255,
+      255,
+      255,
+      0.96
+    );
+
+  box-shadow:
+    0 22px 50px
+    rgba(
+      72,
+      40,
+      48,
+      0.06
+    );
+}
+
+
+.form-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      2,
+      minmax(
+        0,
+        1fr
+      )
+    );
+
+  gap: 22px;
+}
+
+
+.form-grid label {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 8px;
+
+  color:
+    var(--admin-text);
+
+  font-size: 0.82rem;
+
+  font-weight: 800;
+}
+
+
+.form-grid input,
+.form-grid textarea {
+  width: 100%;
+
+  padding:
+    13px 14px;
+
+  border:
+    1px solid
+    #e4cfd4;
+
+  border-radius: 13px;
+
+  outline: none;
+
+  background:
+    #fffafb;
+
+  color:
+    var(--admin-text);
+
+  font: inherit;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+
+.form-grid input:focus,
+.form-grid textarea:focus {
+  border-color:
+    var(--admin-pink);
+
+  box-shadow:
+    0 0 0 3px
+    rgba(
+      235,
+      136,
+      170,
+      0.10
+    );
+}
+
+
+.form-grid textarea {
+  resize: vertical;
+
+  min-height: 110px;
+}
+
+
+.form-grid small {
+  color:
+    var(--admin-muted);
+
+  font-weight: 400;
+
+  line-height: 1.4;
+}
+
+
+.full-width {
+  grid-column:
+    1 / -1;
+}
+
+
+/* ---------------------------------------------------------
+   CHECKBOXES
+--------------------------------------------------------- */
+
+.checkbox-label {
+  flex-direction:
+    row !important;
+
+  align-items:
+    center;
+
+  gap: 10px !important;
+
+  padding:
+    14px 16px;
+
+  border:
+    1px solid
+    var(--admin-border);
+
+  border-radius: 14px;
+
+  background:
+    #fff9fb;
+}
+
+
+.checkbox-label input {
+  width: auto;
+
+  accent-color:
+    var(--admin-pink-dark);
+}
+
+
+/* ---------------------------------------------------------
+   IMAGE PREVIEW
+--------------------------------------------------------- */
+
+.admin-image-preview {
+  max-width: 320px;
+}
+
+
+.admin-image-preview img {
+  width: 100%;
+
+  max-height: 380px;
+
+  object-fit: cover;
+
+  border:
+    1px solid
+    var(--admin-border);
+
+  border-radius: 20px;
+
+  box-shadow:
+    0 14px 35px
+    rgba(
+      70,
+      40,
+      45,
+      0.08
+    );
+}
+
+
+.admin-image-status {
+  padding:
+    13px 15px;
+
+  border:
+    1px solid
+    #eddca3;
+
+  border-radius: 12px;
+
+  background:
+    var(--admin-warning-light);
+
+  color:
+    var(--admin-warning);
+
+  font-size: 0.83rem;
+
+  line-height: 1.5;
+}
+
+
+/* ---------------------------------------------------------
+   SAVE BUTTON
+--------------------------------------------------------- */
+
+.save-product-button {
+  margin-top: 30px;
+
+  padding:
+    15px 28px;
+
+  border: 0;
+
+  border-radius: 999px;
+
+  background:
+    linear-gradient(
+      135deg,
+      var(--admin-pink),
+      var(--admin-peach)
+    );
+
+  color: white;
+
+  font-weight: 850;
+
+  box-shadow:
+    0 14px 28px
+    rgba(
+      225,
+      113,
+      149,
+      0.18
+    );
+
+  transition:
+    transform 0.2s ease,
+    opacity 0.2s ease;
+}
+
+
+.save-product-button:hover {
+  transform:
+    translateY(-1px);
+}
+
+
+.save-product-button:disabled {
+  cursor:
+    not-allowed;
+
+  opacity: 0.5;
+}
+
+
+.required-fields-note {
+  margin-top: 14px;
+
+  color:
+    var(--admin-muted);
+
+  font-size: 0.78rem;
+}
+
+
+/* ---------------------------------------------------------
+   STATUS / MESSAGES
+--------------------------------------------------------- */
+
+.admin-success,
+.admin-error {
+  margin-bottom: 20px;
+
+  padding:
+    14px 16px;
+
+  border-radius: 14px;
+
+  font-size: 0.88rem;
+
+  line-height: 1.5;
+}
+
+
+.admin-success {
+  border:
+    1px solid
+    #cfe6d6;
+
+  background:
+    var(--admin-green-light);
+
+  color:
+    #2f6945;
+}
+
+
+.admin-error {
+  border:
+    1px solid
+    #efc9d2;
+
+  background:
+    var(--admin-danger-light);
+
+  color:
+    var(--admin-danger);
+}
+
+
+/* ---------------------------------------------------------
+   SECONDARY BUTTON
+--------------------------------------------------------- */
+
+.admin-secondary-button {
+  padding:
+    10px 16px;
+
+  border:
+    1px solid
+    var(--admin-border);
+
+  border-radius: 999px;
+
+  background: white;
+
+  color:
+    var(--admin-text);
+
+  font-weight: 750;
+}
+
+
+/* ---------------------------------------------------------
+   PRODUCTS GRID
+--------------------------------------------------------- */
+
+.admin-product-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      auto-fill,
+      minmax(
+        275px,
+        1fr
+      )
+    );
+
+  gap: 24px;
+}
+
+
+.admin-product-card {
+  overflow: hidden;
+
+  border:
+    1px solid
+    var(--admin-border);
+
+  border-radius: 24px;
+
+  background:
+    white;
+
+  box-shadow:
+    0 18px 40px
+    rgba(
+      66,
+      38,
+      45,
+      0.05
+    );
+
+  transition:
+    transform 0.22s ease,
+    box-shadow 0.22s ease,
+    opacity 0.22s ease;
+}
+
+
+.admin-product-card:hover {
+  transform:
+    translateY(-4px);
+
+  box-shadow:
+    0 24px 45px
+    rgba(
+      66,
+      38,
+      45,
+      0.08
+    );
+}
+
+
+.inactive-product {
+  opacity: 0.68;
+
+  border-style: dashed;
+
+  filter:
+    grayscale(0.15);
+}
+
+
+/* ---------------------------------------------------------
+   PRODUCT IMAGE
+--------------------------------------------------------- */
+
+.admin-product-image {
+  aspect-ratio:
+    4 / 3;
+
+  overflow: hidden;
+
+  background:
+    linear-gradient(
+      145deg,
+      var(--admin-pink-light),
+      var(--admin-peach-light)
+    );
+}
+
+
+.admin-product-image img {
+  width: 100%;
+  height: 100%;
+
+  object-fit: cover;
+}
+
+
+.admin-placeholder {
+  width: 100%;
+  height: 100%;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  font-size: 4rem;
+}
+
+
+/* ---------------------------------------------------------
+   PRODUCT BODY
+--------------------------------------------------------- */
+
+.admin-product-body {
+  padding: 20px;
+}
+
+
+.admin-product-heading {
+  display: flex;
+
+  justify-content:
+    space-between;
+
+  align-items:
+    start;
+
+  gap: 15px;
+}
+
+
+.admin-product-heading h3 {
+  margin: 0;
+
+  font-family:
+    Georgia,
+    serif;
+
+  font-size: 1.25rem;
+
+  font-weight: 600;
+}
+
+
+.admin-product-heading strong {
+  color:
+    var(--admin-pink-dark);
+
+  white-space: nowrap;
+}
+
+
+.admin-product-body p {
+  margin:
+    8px 0 0;
+
+  color:
+    var(--admin-muted);
+
+  font-size: 0.82rem;
+
+  line-height: 1.45;
+}
+
+
+/* ---------------------------------------------------------
+   PRODUCT STATUS
+--------------------------------------------------------- */
+
+.admin-product-status {
+  display: flex;
+
+  flex-wrap: wrap;
+
+  gap: 7px;
+
+  margin-top: 15px;
+}
+
+
+.admin-product-status span {
+  padding:
+    6px 10px;
+
+  border-radius: 999px;
+
+  background:
+    var(--admin-pink-light);
+
+  color:
+    var(--admin-pink-dark);
+
+  font-size: 0.7rem;
+
+  font-weight: 800;
+}
+
+
+.status-active {
+  background:
+    var(--admin-green-light)
+    !important;
+
+  color:
+    #2d7149
+    !important;
+}
+
+
+.status-inactive {
+  background:
+    #f4e7e9
+    !important;
+
+  color:
+    #905261
+    !important;
+}
+
+
+/* ---------------------------------------------------------
+   PRODUCT ACTIONS
+--------------------------------------------------------- */
+
+.admin-product-actions {
+  display: grid;
+
+  grid-template-columns:
+    1fr 1fr;
+
+  gap: 10px;
+
+  margin-top: 18px;
+}
+
+
+.admin-product-actions button {
+  padding:
+    11px;
+
+  border:
+    1px solid
+    var(--admin-border);
+
+  border-radius: 999px;
+
+  background:
+    white;
+
+  color:
+    var(--admin-text);
+
+  font-weight: 750;
+
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease;
+}
+
+
+.admin-product-actions button:hover {
+  transform:
+    translateY(-1px);
+
+  background:
+    var(--admin-pink-light);
+}
+
+
+.admin-product-actions .delete-button {
+  border-color:
+    #efc5cf;
+
+  color:
+    var(--admin-danger);
+}
+
+
+.admin-product-actions .delete-button:hover {
+  background:
+    var(--admin-danger-light);
+}
+
+
+/* ---------------------------------------------------------
+   EMPTY STATE
+--------------------------------------------------------- */
+
+.admin-empty {
+  padding: 55px;
+
+  border:
+    1px dashed
+    #ddc6cc;
+
+  border-radius: 24px;
+
+  background:
+    rgba(
+      255,
+      255,
+      255,
+      0.75
+    );
+
+  text-align: center;
+
+  color:
+    var(--admin-muted);
+}
+
+
+/* ---------------------------------------------------------
+   TABLET
+--------------------------------------------------------- */
+
+@media (
+  max-width: 900px
+) {
+
+  .admin-header {
+    position: static;
+
+    flex-direction:
+      column;
+
+    align-items:
+      flex-start;
+  }
+
+
+  .form-grid {
+    grid-template-columns:
+      1fr;
+  }
+
+
+  .full-width {
+    grid-column:
+      auto;
+  }
+
+
+  .admin-product-grid {
+    grid-template-columns:
+      repeat(
+        auto-fill,
+        minmax(
+          240px,
+          1fr
+        )
+      );
+  }
+
+}
+
+
+/* ---------------------------------------------------------
+   MOBILE
+--------------------------------------------------------- */
+
+@media (
+  max-width: 650px
+) {
+
+  .admin-login-page {
+    padding: 18px;
+  }
+
+
+  .admin-login-card {
+    padding: 28px 22px;
+
+    border-radius: 24px;
+  }
+
+
+  .admin-login-card h1 {
+    font-size: 2.2rem;
+  }
+
+
+  .admin-header {
+    padding:
+      24px 5%;
+  }
+
+
+  .admin-header-actions {
+    width: 100%;
+
+    display: grid;
+
+    grid-template-columns:
+      1fr 1fr;
+  }
+
+
+  .admin-header-actions a,
+  .admin-header-actions button {
+    text-align: center;
+  }
+
+
+  .admin-main {
+    padding:
+      38px 5%;
+  }
+
+
+  .admin-section-title {
+    flex-direction:
+      column;
+
+    align-items:
+      flex-start;
+  }
+
+
+  .admin-section-title h2 {
+    font-size: 2rem;
+  }
+
+
+  .product-form {
+    padding: 20px;
+
+    border-radius: 22px;
+  }
+
+
+  .form-grid {
+    gap: 18px;
+  }
+
+
+  .save-product-button {
+    width: 100%;
+  }
+
+
+  .admin-image-preview {
+    max-width: 100%;
+  }
+
+
+  .admin-product-grid {
+    grid-template-columns:
+      1fr;
+  }
+
+
+  .admin-product-actions {
+    grid-template-columns:
+      1fr;
+  }
+
+}

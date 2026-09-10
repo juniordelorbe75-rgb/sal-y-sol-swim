@@ -1,0 +1,9 @@
+.env
+frontend/.env
+.venv/
+__pycache__/
+*.pyc
+.idea/
+backend/uploads/
+backend/*.db
+__pycache__
