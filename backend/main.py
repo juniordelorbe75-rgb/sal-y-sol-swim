@@ -32,193 +32,686 @@ PROJECT_ROOT = BASE_DIR.parent
 DATABASE_PATH = BASE_DIR / "sal_y_sol.db"
 UPLOADS_DIR = BASE_DIR / "uploads"
 
+MAX_PRODUCT_IMAGES = 5
+MAX_IMAGE_SIZE = 5 * 1024 * 1024
+
 load_dotenv(PROJECT_ROOT / ".env")
 
 
+# =========================================================
+# CORS
+# =========================================================
+
 def get_allowed_origins() -> list[str]:
-    configured_origins = os.getenv("ALLOWED_ORIGINS", "")
+    configured_origins = os.getenv(
+        "ALLOWED_ORIGINS",
+        "",
+    )
+
     origins = [
         origin.strip().rstrip("/")
         for origin in configured_origins.split(",")
         if origin.strip()
     ]
 
-    for origin in (
+    local_origins = (
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "http://localhost:3000",
         "http://127.0.0.1:3000",
-    ):
+    )
+
+    for origin in local_origins:
         if origin not in origins:
             origins.append(origin)
 
     return origins
 
 
+# =========================================================
+# DATABASE
+# =========================================================
+
 def _database_url() -> str:
     value = (
-        os.getenv("DATABASE_URL", "").strip()
-        or os.getenv("RENDER_DATABASE_URL", "").strip()
+        os.getenv(
+            "DATABASE_URL",
+            "",
+        ).strip()
+        or os.getenv(
+            "RENDER_DATABASE_URL",
+            "",
+        ).strip()
     )
+
     if value.startswith("postgres://"):
-        value = "postgresql://" + value.removeprefix("postgres://")
-    if value.startswith("postgresql+psycopg://"):
-        value = "postgresql://" + value.removeprefix("postgresql+psycopg://")
+        value = (
+            "postgresql://"
+            + value.removeprefix(
+                "postgres://"
+            )
+        )
+
+    if value.startswith(
+        "postgresql+psycopg://"
+    ):
+        value = (
+            "postgresql://"
+            + value.removeprefix(
+                "postgresql+psycopg://"
+            )
+        )
+
     return value
 
 
 def using_postgres() -> bool:
-    return bool(_database_url())
+    return bool(
+        _database_url()
+    )
 
 
 def get_db():
     url = _database_url()
-    if url:
-        return pg_connect(url, row_factory=dict_row)
 
-    connection = sqlite3.connect(DATABASE_PATH)
-    connection.row_factory = sqlite3.Row
+    if url:
+        return pg_connect(
+            url,
+            row_factory=dict_row,
+        )
+
+    connection = sqlite3.connect(
+        DATABASE_PATH
+    )
+
+    connection.row_factory = (
+        sqlite3.Row
+    )
+
     return connection
 
 
-def db_execute(connection, query: str, parameters=()):
+def db_execute(
+    connection,
+    query: str,
+    parameters=(),
+):
     if using_postgres():
-        query = query.replace("?", "%s")
-    return connection.execute(query, parameters)
+        query = query.replace(
+            "?",
+            "%s",
+        )
+
+    return connection.execute(
+        query,
+        parameters,
+    )
 
 
-def db_bool(value: bool):
-    return value if using_postgres() else int(value)
+def db_bool(
+    value: bool,
+):
+    if using_postgres():
+        return value
+
+    return int(value)
+
+
+# =========================================================
+# JSON / IMAGE HELPERS
+# =========================================================
+
+def parse_json_list(
+    value,
+) -> list:
+    if value is None:
+        return []
+
+    if isinstance(
+        value,
+        list,
+    ):
+        return value
+
+    try:
+        parsed = json.loads(
+            value
+        )
+
+        if isinstance(
+            parsed,
+            list,
+        ):
+            return parsed
+
+    except (
+        json.JSONDecodeError,
+        TypeError,
+    ):
+        pass
+
+    return []
+
+
+def normalize_image_urls(
+    images=None,
+    cover: str = "",
+) -> list[str]:
+    normalized = []
+
+    cover_url = (
+        cover.strip()
+        if isinstance(
+            cover,
+            str,
+        )
+        else ""
+    )
+
+    if cover_url:
+        normalized.append(
+            cover_url
+        )
+
+    for value in (
+        images or []
+    ):
+        if not isinstance(
+            value,
+            str,
+        ):
+            continue
+
+        url = value.strip()
+
+        if (
+            url
+            and url not in normalized
+        ):
+            normalized.append(
+                url
+            )
+
+        if (
+            len(normalized)
+            >= MAX_PRODUCT_IMAGES
+        ):
+            break
+
+    return normalized[
+        :MAX_PRODUCT_IMAGES
+    ]
+
+
+# =========================================================
+# DATABASE MIGRATION
+# =========================================================
+
+def ensure_images_column(
+    connection,
+) -> None:
+    """
+    Adds the `images` column without deleting
+    or recreating existing products.
+    """
+
+    if using_postgres():
+        connection.execute(
+            """
+            ALTER TABLE products
+            ADD COLUMN IF NOT EXISTS images
+            TEXT NOT NULL DEFAULT '[]'
+            """
+        )
+
+    else:
+        columns = (
+            connection.execute(
+                "PRAGMA table_info(products)"
+            )
+            .fetchall()
+        )
+
+        column_names = {
+            row["name"]
+            for row in columns
+        }
+
+        if (
+            "images"
+            not in column_names
+        ):
+            connection.execute(
+                """
+                ALTER TABLE products
+                ADD COLUMN images
+                TEXT NOT NULL DEFAULT '[]'
+                """
+            )
+
+    connection.commit()
+
+
+def migrate_existing_product_images(
+    connection,
+) -> None:
+    """
+    Existing products only have `image`.
+
+    This copies that old cover image into
+    the new `images` collection automatically.
+    """
+
+    rows = db_execute(
+        connection,
+        """
+        SELECT
+            id,
+            image,
+            images
+        FROM products
+        """,
+    ).fetchall()
+
+    for row in rows:
+        existing_images = (
+            parse_json_list(
+                row["images"]
+            )
+        )
+
+        cover = (
+            row["image"] or ""
+        ).strip()
+
+        if (
+            not existing_images
+            and cover
+        ):
+            db_execute(
+                connection,
+                """
+                UPDATE products
+                SET images = ?
+                WHERE id = ?
+                """,
+                (
+                    json.dumps(
+                        [cover]
+                    ),
+                    row["id"],
+                ),
+            )
+
+    connection.commit()
 
 
 def create_tables() -> None:
     connection = get_db()
+
     try:
         if using_postgres():
             connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS products (
                     id BIGSERIAL PRIMARY KEY,
+
                     name TEXT NOT NULL,
-                    description TEXT NOT NULL DEFAULT '',
-                    price INTEGER NOT NULL CHECK (price > 0),
-                    image TEXT NOT NULL DEFAULT '',
-                    sizes TEXT NOT NULL DEFAULT '[]',
-                    colors TEXT NOT NULL DEFAULT '[]',
-                    stock INTEGER NOT NULL DEFAULT 0 CHECK (stock >= 0),
-                    featured BOOLEAN NOT NULL DEFAULT FALSE,
-                    active BOOLEAN NOT NULL DEFAULT TRUE
+
+                    description TEXT
+                    NOT NULL DEFAULT '',
+
+                    price INTEGER
+                    NOT NULL
+                    CHECK (price > 0),
+
+                    image TEXT
+                    NOT NULL DEFAULT '',
+
+                    images TEXT
+                    NOT NULL DEFAULT '[]',
+
+                    sizes TEXT
+                    NOT NULL DEFAULT '[]',
+
+                    colors TEXT
+                    NOT NULL DEFAULT '[]',
+
+                    stock INTEGER
+                    NOT NULL DEFAULT 0
+                    CHECK (stock >= 0),
+
+                    featured BOOLEAN
+                    NOT NULL DEFAULT FALSE,
+
+                    active BOOLEAN
+                    NOT NULL DEFAULT TRUE
                 )
                 """
             )
+
         else:
             connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS products (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT NOT NULL,
-                    description TEXT DEFAULT '',
-                    price INTEGER NOT NULL,
-                    image TEXT DEFAULT '',
-                    sizes TEXT DEFAULT '[]',
-                    colors TEXT DEFAULT '[]',
-                    stock INTEGER DEFAULT 0,
-                    featured INTEGER DEFAULT 0,
-                    active INTEGER DEFAULT 1
+                    id INTEGER
+                    PRIMARY KEY AUTOINCREMENT,
+
+                    name TEXT
+                    NOT NULL,
+
+                    description TEXT
+                    DEFAULT '',
+
+                    price INTEGER
+                    NOT NULL,
+
+                    image TEXT
+                    DEFAULT '',
+
+                    images TEXT
+                    DEFAULT '[]',
+
+                    sizes TEXT
+                    DEFAULT '[]',
+
+                    colors TEXT
+                    DEFAULT '[]',
+
+                    stock INTEGER
+                    DEFAULT 0,
+
+                    featured INTEGER
+                    DEFAULT 0,
+
+                    active INTEGER
+                    DEFAULT 1
                 )
                 """
             )
+
         connection.commit()
+
+        ensure_images_column(
+            connection
+        )
+
+        migrate_existing_product_images(
+            connection
+        )
+
     finally:
         connection.close()
 
 
-class ProductCreate(BaseModel):
-    name: str = Field(min_length=2, max_length=100)
+# =========================================================
+# SCHEMAS
+# =========================================================
+
+class ProductCreate(
+    BaseModel
+):
+    name: str = Field(
+        min_length=2,
+        max_length=100,
+    )
+
     description: str = ""
-    price: int = Field(gt=0)
+
+    price: int = Field(
+        gt=0
+    )
+
     image: str = ""
-    sizes: list[str] = Field(default_factory=list)
-    colors: list[str] = Field(default_factory=list)
-    stock: int = Field(default=0, ge=0)
+
+    images: list[str] = Field(
+        default_factory=list,
+        max_length=MAX_PRODUCT_IMAGES,
+    )
+
+    sizes: list[str] = Field(
+        default_factory=list
+    )
+
+    colors: list[str] = Field(
+        default_factory=list
+    )
+
+    stock: int = Field(
+        default=0,
+        ge=0,
+    )
+
     featured: bool = False
     active: bool = True
 
 
-class ProductUpdate(BaseModel):
-    name: Optional[str] = Field(default=None, min_length=2, max_length=100)
+class ProductUpdate(
+    BaseModel
+):
+    name: Optional[str] = Field(
+        default=None,
+        min_length=2,
+        max_length=100,
+    )
+
     description: Optional[str] = None
-    price: Optional[int] = Field(default=None, gt=0)
+
+    price: Optional[int] = Field(
+        default=None,
+        gt=0,
+    )
+
     image: Optional[str] = None
-    sizes: Optional[list[str]] = None
-    colors: Optional[list[str]] = None
-    stock: Optional[int] = Field(default=None, ge=0)
-    featured: Optional[bool] = None
-    active: Optional[bool] = None
+
+    images: Optional[
+        list[str]
+    ] = Field(
+        default=None,
+        max_length=MAX_PRODUCT_IMAGES,
+    )
+
+    sizes: Optional[
+        list[str]
+    ] = None
+
+    colors: Optional[
+        list[str]
+    ] = None
+
+    stock: Optional[int] = Field(
+        default=None,
+        ge=0,
+    )
+
+    featured: Optional[
+        bool
+    ] = None
+
+    active: Optional[
+        bool
+    ] = None
 
 
-class ProductResponse(BaseModel):
+class ProductResponse(
+    BaseModel
+):
     id: int
+
     name: str
+
     description: str
+
     price: int
+
     image: str
+
+    images: list[str]
+
     sizes: list[str]
+
     colors: list[str]
+
     stock: int
+
     featured: bool
+
     active: bool
 
 
-def row_to_product(row) -> dict:
+# =========================================================
+# PRODUCT SERIALIZATION
+# =========================================================
+
+def row_to_product(
+    row,
+) -> dict:
+    cover = (
+        row["image"]
+        or ""
+    ).strip()
+
+    images = (
+        parse_json_list(
+            row["images"]
+        )
+    )
+
+    images = (
+        normalize_image_urls(
+            images,
+            cover,
+        )
+    )
+
+    if (
+        not cover
+        and images
+    ):
+        cover = images[0]
+
     return {
-        "id": row["id"],
-        "name": row["name"],
-        "description": row["description"],
-        "price": row["price"],
-        "image": row["image"],
-        "sizes": json.loads(row["sizes"] or "[]"),
-        "colors": json.loads(row["colors"] or "[]"),
-        "stock": row["stock"],
-        "featured": bool(row["featured"]),
-        "active": bool(row["active"]),
+        "id":
+            row["id"],
+
+        "name":
+            row["name"],
+
+        "description":
+            row["description"],
+
+        "price":
+            row["price"],
+
+        "image":
+            cover,
+
+        "images":
+            images,
+
+        "sizes":
+            parse_json_list(
+                row["sizes"]
+            ),
+
+        "colors":
+            parse_json_list(
+                row["colors"]
+            ),
+
+        "stock":
+            row["stock"],
+
+        "featured":
+            bool(
+                row["featured"]
+            ),
+
+        "active":
+            bool(
+                row["active"]
+            ),
     }
 
 
+# =========================================================
+# ADMIN AUTH
+# =========================================================
+
 def require_admin(
-    x_admin_key: Annotated[Optional[str], Header()] = None,
+    x_admin_key:
+    Annotated[
+        Optional[str],
+        Header(),
+    ] = None,
 ):
-    expected_key = os.getenv("ADMIN_KEY", "").strip()
+    expected_key = (
+        os.getenv(
+            "ADMIN_KEY",
+            "",
+        )
+        .strip()
+    )
 
     if not expected_key:
         raise HTTPException(
             status_code=503,
-            detail="ADMIN_KEY is not configured.",
+            detail=(
+                "ADMIN_KEY is not "
+                "configured."
+            ),
         )
 
     if not x_admin_key:
         raise HTTPException(
             status_code=401,
-            detail="Admin key required.",
+            detail=(
+                "Admin key required."
+            ),
         )
 
-    if not secrets.compare_digest(x_admin_key, expected_key):
+    if not secrets.compare_digest(
+        x_admin_key,
+        expected_key,
+    ):
         raise HTTPException(
             status_code=401,
-            detail="Invalid admin key.",
+            detail=(
+                "Invalid admin key."
+            ),
         )
 
     return True
 
 
+# =========================================================
+# IMAGE STORAGE
+# =========================================================
+
 def image_storage_mode() -> str:
-    return os.getenv("IMAGE_STORAGE", "local").strip().lower()
+    return (
+        os.getenv(
+            "IMAGE_STORAGE",
+            "local",
+        )
+        .strip()
+        .lower()
+    )
 
 
 def validate_image_storage() -> None:
-    mode = image_storage_mode()
-    if mode not in {"local", "r2"}:
-        raise RuntimeError("IMAGE_STORAGE must be 'local' or 'r2'.")
+    mode = (
+        image_storage_mode()
+    )
+
+    if mode not in {
+        "local",
+        "r2",
+    }:
+        raise RuntimeError(
+            "IMAGE_STORAGE must be "
+            "'local' or 'r2'."
+        )
 
     if mode == "r2":
         required = (
@@ -228,200 +721,484 @@ def validate_image_storage() -> None:
             "OBJECT_STORAGE_SECRET_ACCESS_KEY",
             "OBJECT_STORAGE_PUBLIC_BASE_URL",
         )
-        missing = [name for name in required if not os.getenv(name, "").strip()]
+
+        missing = [
+            name
+            for name in required
+            if not os.getenv(
+                name,
+                "",
+            ).strip()
+        ]
+
         if missing:
             raise RuntimeError(
-                "Missing R2 settings: " + ", ".join(missing)
+                "Missing R2 settings: "
+                + ", ".join(
+                    missing
+                )
             )
 
-        public_base = os.getenv("OBJECT_STORAGE_PUBLIC_BASE_URL", "").strip()
-        endpoint = os.getenv("OBJECT_STORAGE_ENDPOINT_URL", "").strip()
-
-        if not public_base.startswith("https://"):
-            raise RuntimeError(
-                "OBJECT_STORAGE_PUBLIC_BASE_URL must start with https://"
+        public_base = (
+            os.getenv(
+                "OBJECT_STORAGE_PUBLIC_BASE_URL",
+                "",
             )
-        if not endpoint.startswith("https://"):
+            .strip()
+        )
+
+        endpoint = (
+            os.getenv(
+                "OBJECT_STORAGE_ENDPOINT_URL",
+                "",
+            )
+            .strip()
+        )
+
+        if not public_base.startswith(
+            "https://"
+        ):
             raise RuntimeError(
-                "OBJECT_STORAGE_ENDPOINT_URL must start with https://"
+                "OBJECT_STORAGE_PUBLIC_BASE_URL "
+                "must start with https://"
+            )
+
+        if not endpoint.startswith(
+            "https://"
+        ):
+            raise RuntimeError(
+                "OBJECT_STORAGE_ENDPOINT_URL "
+                "must start with https://"
             )
 
 
 def r2_client():
     return boto3.client(
         "s3",
-        endpoint_url=os.getenv("OBJECT_STORAGE_ENDPOINT_URL", "").strip(),
-        aws_access_key_id=os.getenv("OBJECT_STORAGE_ACCESS_KEY_ID", "").strip(),
-        aws_secret_access_key=os.getenv(
-            "OBJECT_STORAGE_SECRET_ACCESS_KEY", ""
-        ).strip(),
-        region_name=os.getenv("OBJECT_STORAGE_REGION", "auto").strip() or "auto",
-        config=Config(signature_version="s3v4"),
+
+        endpoint_url=(
+            os.getenv(
+                "OBJECT_STORAGE_ENDPOINT_URL",
+                "",
+            )
+            .strip()
+        ),
+
+        aws_access_key_id=(
+            os.getenv(
+                "OBJECT_STORAGE_ACCESS_KEY_ID",
+                "",
+            )
+            .strip()
+        ),
+
+        aws_secret_access_key=(
+            os.getenv(
+                "OBJECT_STORAGE_SECRET_ACCESS_KEY",
+                "",
+            )
+            .strip()
+        ),
+
+        region_name=(
+            os.getenv(
+                "OBJECT_STORAGE_REGION",
+                "auto",
+            )
+            .strip()
+            or "auto"
+        ),
+
+        config=Config(
+            signature_version="s3v4"
+        ),
     )
 
 
+# =========================================================
+# APPLICATION LIFESPAN
+# =========================================================
+
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+async def lifespan(
+    app: FastAPI,
+):
+    UPLOADS_DIR.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
     create_tables()
+
     validate_image_storage()
+
     yield
 
 
+# =========================================================
+# FASTAPI
+# =========================================================
+
 app = FastAPI(
-    title="Sal y Sol Swim API",
-    description="Backend API for Sal y Sol Swim",
-    version="2.0.0",
+    title=(
+        "Sal y Sol Swim API"
+    ),
+
+    description=(
+        "Backend API for "
+        "Sal y Sol Swim"
+    ),
+
+    version="2.1.0",
+
     lifespan=lifespan,
 )
 
-UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+
+UPLOADS_DIR.mkdir(
+    parents=True,
+    exist_ok=True,
+)
+
+
 app.mount(
     "/uploads",
-    StaticFiles(directory=UPLOADS_DIR),
+
+    StaticFiles(
+        directory=UPLOADS_DIR
+    ),
+
     name="uploads",
 )
 
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=get_allowed_origins(),
+
+    allow_origins=(
+        get_allowed_origins()
+    ),
+
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+
+    allow_methods=[
+        "*"
+    ],
+
+    allow_headers=[
+        "*"
+    ],
 )
 
+
+# =========================================================
+# HEALTH
+# =========================================================
 
 @app.get("/")
 def home():
     return {
-        "message": "Sal y Sol Swim API is running",
-        "status": "ok",
+        "message":
+            "Sal y Sol Swim API "
+            "is running",
+
+        "status":
+            "ok",
     }
 
 
 @app.get("/health")
 def health():
-    return {"status": "healthy"}
+    return {
+        "status":
+            "healthy"
+    }
 
 
 @app.get("/ready")
 def ready():
     connection = get_db()
+
     try:
-        db_execute(connection, "SELECT 1").fetchone()
+        db_execute(
+            connection,
+            "SELECT 1",
+        ).fetchone()
+
     except Exception as exc:
-        raise HTTPException(status_code=503, detail="Database unavailable") from exc
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Database unavailable"
+            ),
+        ) from exc
+
     finally:
         connection.close()
 
     return {
-        "status": "ready",
-        "database": "postgresql" if using_postgres() else "sqlite",
-        "image_storage": image_storage_mode(),
+        "status":
+            "ready",
+
+        "database":
+            (
+                "postgresql"
+                if using_postgres()
+                else "sqlite"
+            ),
+
+        "image_storage":
+            image_storage_mode(),
+
+        "max_product_images":
+            MAX_PRODUCT_IMAGES,
     }
 
 
+# =========================================================
+# ADMIN CHECK
+# =========================================================
+
 @app.get(
     "/admin/check",
-    dependencies=[Depends(require_admin)],
+
+    dependencies=[
+        Depends(
+            require_admin
+        )
+    ],
 )
 def admin_check():
-    return {"authenticated": True}
+    return {
+        "authenticated":
+            True
+    }
 
+
+# =========================================================
+# PUBLIC PRODUCTS
+# =========================================================
 
 @app.get(
     "/products",
-    response_model=list[ProductResponse],
+
+    response_model=
+        list[
+            ProductResponse
+        ],
 )
-def get_products(featured: Optional[bool] = None):
+def get_products(
+    featured:
+    Optional[bool] = None,
+):
     connection = get_db()
+
     try:
         query = """
             SELECT *
             FROM products
             WHERE active = ?
         """
-        parameters = [db_bool(True)]
+
+        parameters = [
+            db_bool(
+                True
+            )
+        ]
 
         if featured is not None:
-            query += " AND featured = ?"
-            parameters.append(db_bool(featured))
+            query += (
+                " AND featured = ?"
+            )
 
-        query += " ORDER BY id DESC"
-        rows = db_execute(connection, query, parameters).fetchall()
+            parameters.append(
+                db_bool(
+                    featured
+                )
+            )
+
+        query += (
+            " ORDER BY id DESC"
+        )
+
+        rows = db_execute(
+            connection,
+            query,
+            parameters,
+        ).fetchall()
+
     finally:
         connection.close()
 
-    return [row_to_product(row) for row in rows]
+    return [
+        row_to_product(
+            row
+        )
+        for row in rows
+    ]
 
 
 @app.get(
     "/products/{product_id}",
-    response_model=ProductResponse,
+
+    response_model=
+        ProductResponse,
 )
-def get_product(product_id: int):
+def get_product(
+    product_id: int,
+):
     connection = get_db()
+
     try:
         row = db_execute(
             connection,
+
             """
             SELECT *
             FROM products
             WHERE id = ?
             AND active = ?
             """,
-            (product_id, db_bool(True)),
+
+            (
+                product_id,
+
+                db_bool(
+                    True
+                ),
+            ),
+
         ).fetchone()
+
     finally:
         connection.close()
 
     if row is None:
-        raise HTTPException(status_code=404, detail="Product not found")
+        raise HTTPException(
+            status_code=404,
 
-    return row_to_product(row)
+            detail=(
+                "Product not found"
+            ),
+        )
 
+    return row_to_product(
+        row
+    )
+
+
+# =========================================================
+# ADMIN PRODUCTS
+# =========================================================
 
 @app.get(
     "/admin/products",
-    response_model=list[ProductResponse],
-    dependencies=[Depends(require_admin)],
+
+    response_model=
+        list[
+            ProductResponse
+        ],
+
+    dependencies=[
+        Depends(
+            require_admin
+        )
+    ],
 )
 def get_admin_products():
     connection = get_db()
+
     try:
         rows = db_execute(
             connection,
+
             """
             SELECT *
             FROM products
             ORDER BY id DESC
             """,
+
         ).fetchall()
+
     finally:
         connection.close()
 
-    return [row_to_product(row) for row in rows]
+    return [
+        row_to_product(
+            row
+        )
+        for row in rows
+    ]
 
+
+# =========================================================
+# CREATE PRODUCT
+# =========================================================
 
 @app.post(
     "/products",
-    response_model=ProductResponse,
+
+    response_model=
+        ProductResponse,
+
     status_code=201,
-    dependencies=[Depends(require_admin)],
+
+    dependencies=[
+        Depends(
+            require_admin
+        )
+    ],
 )
-def create_product(product: ProductCreate):
+def create_product(
+    product:
+    ProductCreate,
+):
+    images = (
+        normalize_image_urls(
+            product.images,
+            product.image,
+        )
+    )
+
+    cover = (
+        images[0]
+        if images
+        else ""
+    )
+
     connection = get_db()
+
     try:
         values = (
             product.name,
+
             product.description,
+
             product.price,
-            product.image,
-            json.dumps(product.sizes),
-            json.dumps(product.colors),
+
+            cover,
+
+            json.dumps(
+                images
+            ),
+
+            json.dumps(
+                product.sizes
+            ),
+
+            json.dumps(
+                product.colors
+            ),
+
             product.stock,
-            db_bool(product.featured),
-            db_bool(product.active),
+
+            db_bool(
+                product.featured
+            ),
+
+            db_bool(
+                product.active
+            ),
         )
 
         query = """
@@ -430,191 +1207,514 @@ def create_product(product: ProductCreate):
                 description,
                 price,
                 image,
+                images,
                 sizes,
                 colors,
                 stock,
                 featured,
                 active
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (
+                ?, ?, ?, ?, ?,
+                ?, ?, ?, ?, ?
+            )
         """
 
         if using_postgres():
-            cursor = db_execute(connection, query + " RETURNING id", values)
-            product_id = cursor.fetchone()["id"]
+            cursor = db_execute(
+                connection,
+
+                query
+                + " RETURNING id",
+
+                values,
+            )
+
+            product_id = (
+                cursor
+                .fetchone()[
+                    "id"
+                ]
+            )
+
         else:
-            cursor = db_execute(connection, query, values)
-            product_id = cursor.lastrowid
+            cursor = db_execute(
+                connection,
+                query,
+                values,
+            )
+
+            product_id = (
+                cursor.lastrowid
+            )
 
         connection.commit()
 
         row = db_execute(
             connection,
-            "SELECT * FROM products WHERE id = ?",
-            (product_id,),
+
+            """
+            SELECT *
+            FROM products
+            WHERE id = ?
+            """,
+
+            (
+                product_id,
+            ),
+
         ).fetchone()
+
     finally:
         connection.close()
 
-    return row_to_product(row)
+    return row_to_product(
+        row
+    )
 
+
+# =========================================================
+# UPDATE PRODUCT
+# =========================================================
 
 @app.put(
     "/products/{product_id}",
-    response_model=ProductResponse,
-    dependencies=[Depends(require_admin)],
+
+    response_model=
+        ProductResponse,
+
+    dependencies=[
+        Depends(
+            require_admin
+        )
+    ],
 )
-def update_product(product_id: int, product: ProductUpdate):
+def update_product(
+    product_id: int,
+
+    product:
+    ProductUpdate,
+):
     connection = get_db()
+
     try:
         existing = db_execute(
             connection,
-            "SELECT * FROM products WHERE id = ?",
-            (product_id,),
+
+            """
+            SELECT *
+            FROM products
+            WHERE id = ?
+            """,
+
+            (
+                product_id,
+            ),
+
         ).fetchone()
 
         if existing is None:
-            raise HTTPException(status_code=404, detail="Product not found")
+            raise HTTPException(
+                status_code=404,
 
-        update_data = product.model_dump(exclude_unset=True)
+                detail=(
+                    "Product not found"
+                ),
+            )
+
+        update_data = (
+            product.model_dump(
+                exclude_unset=True
+            )
+        )
+
         if not update_data:
-            return row_to_product(existing)
+            return row_to_product(
+                existing
+            )
+
+        if (
+            "images"
+            in update_data
+            or
+            "image"
+            in update_data
+        ):
+            existing_images = (
+                parse_json_list(
+                    existing[
+                        "images"
+                    ]
+                )
+            )
+
+            requested_images = (
+                update_data.get(
+                    "images",
+                    existing_images,
+                )
+            )
+
+            requested_cover = (
+                update_data.get(
+                    "image",
+                    existing[
+                        "image"
+                    ],
+                )
+                or ""
+            )
+
+            normalized_images = (
+                normalize_image_urls(
+                    requested_images,
+                    requested_cover,
+                )
+            )
+
+            update_data[
+                "images"
+            ] = (
+                normalized_images
+            )
+
+            update_data[
+                "image"
+            ] = (
+                normalized_images[
+                    0
+                ]
+                if normalized_images
+                else ""
+            )
 
         fields = []
+
         values = []
 
-        for field, value in update_data.items():
-            if field in {"sizes", "colors"}:
-                value = json.dumps(value)
-            elif field in {"featured", "active"}:
-                value = db_bool(value)
+        for (
+            field,
+            value,
+        ) in update_data.items():
 
-            fields.append(f"{field} = ?")
-            values.append(value)
+            if field in {
+                "sizes",
+                "colors",
+                "images",
+            }:
+                value = json.dumps(
+                    value
+                )
 
-        values.append(product_id)
+            elif field in {
+                "featured",
+                "active",
+            }:
+                value = db_bool(
+                    value
+                )
+
+            fields.append(
+                f"{field} = ?"
+            )
+
+            values.append(
+                value
+            )
+
+        values.append(
+            product_id
+        )
 
         db_execute(
             connection,
+
             f"""
             UPDATE products
             SET {", ".join(fields)}
             WHERE id = ?
             """,
+
             values,
         )
+
         connection.commit()
 
         row = db_execute(
             connection,
-            "SELECT * FROM products WHERE id = ?",
-            (product_id,),
+
+            """
+            SELECT *
+            FROM products
+            WHERE id = ?
+            """,
+
+            (
+                product_id,
+            ),
+
         ).fetchone()
+
     finally:
         connection.close()
 
-    return row_to_product(row)
+    return row_to_product(
+        row
+    )
 
+
+# =========================================================
+# DELETE PRODUCT
+# =========================================================
 
 @app.delete(
     "/products/{product_id}",
-    dependencies=[Depends(require_admin)],
+
+    dependencies=[
+        Depends(
+            require_admin
+        )
+    ],
 )
-def delete_product(product_id: int):
+def delete_product(
+    product_id: int,
+):
     connection = get_db()
+
     try:
         existing = db_execute(
             connection,
-            "SELECT id FROM products WHERE id = ?",
-            (product_id,),
+
+            """
+            SELECT id
+            FROM products
+            WHERE id = ?
+            """,
+
+            (
+                product_id,
+            ),
+
         ).fetchone()
 
         if existing is None:
-            raise HTTPException(status_code=404, detail="Product not found")
+            raise HTTPException(
+                status_code=404,
+
+                detail=(
+                    "Product not found"
+                ),
+            )
 
         db_execute(
             connection,
-            "DELETE FROM products WHERE id = ?",
-            (product_id,),
+
+            """
+            DELETE FROM products
+            WHERE id = ?
+            """,
+
+            (
+                product_id,
+            ),
         )
+
         connection.commit()
+
     finally:
         connection.close()
 
     return {
-        "message": "Product deleted successfully",
-        "product_id": product_id,
+        "message":
+            "Product deleted successfully",
+
+        "product_id":
+            product_id,
     }
 
+
+# =========================================================
+# IMAGE UPLOAD
+# =========================================================
 
 @app.post(
     "/admin/upload-image",
-    dependencies=[Depends(require_admin)],
+
+    dependencies=[
+        Depends(
+            require_admin
+        )
+    ],
 )
 async def upload_image(
     request: Request,
-    file: UploadFile = File(...),
+
+    file:
+    UploadFile = File(...),
 ):
     allowed_types = {
-        "image/jpeg": ".jpg",
-        "image/png": ".png",
-        "image/webp": ".webp",
+        "image/jpeg":
+            ".jpg",
+
+        "image/jpg":
+            ".jpg",
+
+        "image/png":
+            ".png",
+
+        "image/webp":
+            ".webp",
     }
 
-    if file.content_type not in allowed_types:
+    content_type = (
+        file.content_type
+        or ""
+    ).lower()
+
+    if (
+        content_type
+        not in allowed_types
+    ):
         raise HTTPException(
             status_code=400,
-            detail="Only JPG, PNG and WEBP images are allowed.",
+
+            detail=(
+                "Only JPG, PNG and "
+                "WEBP images are allowed."
+            ),
         )
 
     contents = await file.read()
-    max_size = 5 * 1024 * 1024
 
-    if len(contents) > max_size:
+    if (
+        len(contents)
+        > MAX_IMAGE_SIZE
+    ):
         raise HTTPException(
             status_code=400,
-            detail="Image must be 5 MB or smaller.",
+
+            detail=(
+                "Image must be "
+                "5 MB or smaller."
+            ),
         )
 
-    extension = allowed_types[file.content_type]
-    filename = f"{uuid4().hex}{extension}"
+    extension = (
+        allowed_types[
+            content_type
+        ]
+    )
 
-    if image_storage_mode() == "r2":
-        key = f"products/{filename}"
+    filename = (
+        f"{uuid4().hex}"
+        f"{extension}"
+    )
+
+    # -----------------------------------------------------
+    # CLOUDFLARE R2
+    # -----------------------------------------------------
+
+    if (
+        image_storage_mode()
+        == "r2"
+    ):
+        key = (
+            f"products/"
+            f"{filename}"
+        )
+
         try:
             r2_client().put_object(
-                Bucket=os.getenv("OBJECT_STORAGE_BUCKET", "").strip(),
+                Bucket=(
+                    os.getenv(
+                        "OBJECT_STORAGE_BUCKET",
+                        "",
+                    )
+                    .strip()
+                ),
+
                 Key=key,
+
                 Body=contents,
-                ContentType=file.content_type,
-                CacheControl="public, max-age=31536000",
+
+                ContentType=
+                    content_type,
+
+                CacheControl=(
+                    "public, "
+                    "max-age=31536000"
+                ),
             )
+
         except Exception as exc:
             raise HTTPException(
                 status_code=502,
-                detail="Image storage upload failed.",
+
+                detail=(
+                    "Image storage "
+                    "upload failed."
+                ),
             ) from exc
 
-        public_base = os.getenv(
-            "OBJECT_STORAGE_PUBLIC_BASE_URL", ""
-        ).strip().rstrip("/")
+        public_base = (
+            os.getenv(
+                "OBJECT_STORAGE_PUBLIC_BASE_URL",
+                "",
+            )
+            .strip()
+            .rstrip("/")
+        )
 
         return {
-            "filename": filename,
-            "url": f"{public_base}/{key}",
+            "filename":
+                filename,
+
+            "url":
+                (
+                    f"{public_base}/"
+                    f"{key}"
+                ),
         }
 
-    destination = UPLOADS_DIR / filename
-    destination.write_bytes(contents)
+    # -----------------------------------------------------
+    # LOCAL STORAGE
+    # -----------------------------------------------------
 
-    public_base_url = os.getenv("PUBLIC_BASE_URL", "").strip()
+    destination = (
+        UPLOADS_DIR
+        / filename
+    )
+
+    destination.write_bytes(
+        contents
+    )
+
+    public_base_url = (
+        os.getenv(
+            "PUBLIC_BASE_URL",
+            "",
+        )
+        .strip()
+    )
+
     base_url = (
-        public_base_url.rstrip("/")
+        public_base_url.rstrip(
+            "/"
+        )
         if public_base_url
-        else str(request.base_url).rstrip("/")
+        else str(
+            request.base_url
+        ).rstrip("/")
     )
 
     return {
-        "filename": filename,
-        "url": f"{base_url}/uploads/{filename}",
+        "filename":
+            filename,
+
+        "url":
+            (
+                f"{base_url}/"
+                f"uploads/"
+                f"{filename}"
+            ),
     }
