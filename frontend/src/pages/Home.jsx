@@ -184,11 +184,11 @@ function Home() {
             <div className="home-product-grid">
               {previewProducts.map(
                 (product) => (
-                  <Link
-                    to="/tienda"
-                    className="home-product-card"
-                    key={product.id}
-                  >
+                   <Link
+                      to={`/producto/${product.id}`}
+                      className="home-product-card"
+                      key={product.id}
+                    >
                     <div className="home-product-image">
                       {product.image ? (
                         <img

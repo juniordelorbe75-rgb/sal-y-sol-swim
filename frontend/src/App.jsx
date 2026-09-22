@@ -5,6 +5,7 @@ import {
 } from "react-router-dom";
 
 import Navbar from "./components/Navbar";
+import ViewProduct from "./pages/ViewProduct";
 
 import Home from "./pages/Home";
 import Store from "./pages/Store";
@@ -27,6 +28,11 @@ function App() {
           <Route
             path="/tienda"
             element={<Store />}
+          />
+
+          <Route
+            path="/producto/:productId"
+            element={<ViewProduct />}
           />
 
           <Route
