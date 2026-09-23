@@ -1143,6 +1143,11 @@ main {
 }
 
 
+.product-card-clickable {
+  cursor: pointer;
+}
+
+
 .product-card-link,
 .product-title-link {
   display: block;
