@@ -6,6 +6,7 @@ import {
 
 import {
   Link,
+  useNavigate,
 } from "react-router-dom";
 
 import {
@@ -30,6 +31,8 @@ function formatPrice(price) {
 
 
 function Store() {
+  const navigate = useNavigate();
+
   const [products, setProducts] =
     useState([]);
 
@@ -278,6 +281,13 @@ function Store() {
   }
 
 
+  function openProduct(productId) {
+    navigate(
+      `/producto/${productId}`
+    );
+  }
+
+
   return (
     <section className="store-page">
       {notice && (
@@ -511,9 +521,14 @@ function Store() {
 
                     return (
                       <article
-                        className="product-card"
+                        className="product-card product-card-clickable"
                         key={
                           product.id
+                        }
+                        onClick={() =>
+                          openProduct(
+                            product.id
+                          )
                         }
                       >
                         <Link
@@ -572,7 +587,12 @@ function Store() {
                           {product.sizes
                             ?.length >
                             0 && (
-                            <div className="product-option">
+                            <div
+                              className="product-option"
+                              onClick={(event) =>
+                                event.stopPropagation()
+                              }
+                            >
                               <label>
                                 Talla
                               </label>
@@ -618,7 +638,12 @@ function Store() {
                           {product.colors
                             ?.length >
                             0 && (
-                            <div className="product-option">
+                            <div
+                              className="product-option"
+                              onClick={(event) =>
+                                event.stopPropagation()
+                              }
+                            >
                               <label>
                                 Color
                               </label>
@@ -668,11 +693,12 @@ function Store() {
                               product.stock <=
                               0
                             }
-                            onClick={() =>
+                            onClick={(event) => {
+                              event.stopPropagation();
                               handleAdd(
                                 product
-                              )
-                            }
+                              );
+                            }}
                           >
                             {product.stock >
                             0
