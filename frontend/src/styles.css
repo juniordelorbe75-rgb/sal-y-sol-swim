@@ -1143,6 +1143,19 @@ main {
 }
 
 
+.product-card-link,
+.product-title-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+
+.product-card-link {
+  cursor: pointer;
+}
+
+
 .product-image {
   position: relative;
 
