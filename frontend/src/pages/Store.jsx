@@ -5,6 +5,10 @@ import {
 } from "react";
 
 import {
+  Link,
+} from "react-router-dom";
+
+import {
   getProducts,
 } from "../api";
 
@@ -512,45 +516,57 @@ function Store() {
                           product.id
                         }
                       >
-                        <div className="product-image">
-                          {product.image ? (
-                            <img
-                              src={
-                                product.image
-                              }
-                              alt={
-                                product.name
-                              }
-                            />
-                          ) : (
-                            <div className="image-placeholder">
-                              Sal y Sol
-                            </div>
-                          )}
+                        <Link
+                          to={`/producto/${product.id}`}
+                          className="product-card-link"
+                          aria-label={`Ver ${product.name}`}
+                        >
+                          <div className="product-image">
+                            {product.image ? (
+                              <img
+                                src={
+                                  product.image
+                                }
+                                alt={
+                                  product.name
+                                }
+                              />
+                            ) : (
+                              <div className="image-placeholder">
+                                Sal y Sol
+                              </div>
+                            )}
 
 
-                          {product.featured && (
-                            <span className="featured-badge">
-                              Destacado
-                            </span>
-                          )}
-                        </div>
+                            {product.featured && (
+                              <span className="featured-badge">
+                                Destacado
+                              </span>
+                            )}
+                          </div>
+                        </Link>
 
 
                         <div className="product-content">
-                          <div className="product-title-row">
-                            <h3>
-                              {
-                                product.name
-                              }
-                            </h3>
+                          <Link
+                            to={`/producto/${product.id}`}
+                            className="product-title-link"
+                            aria-label={`Ver detalles de ${product.name}`}
+                          >
+                            <div className="product-title-row">
+                              <h3>
+                                {
+                                  product.name
+                                }
+                              </h3>
 
-                            <strong>
-                              {formatPrice(
-                                product.price
-                              )}
-                            </strong>
-                          </div>
+                              <strong>
+                                {formatPrice(
+                                  product.price
+                                )}
+                              </strong>
+                            </div>
+                          </Link>
 
 
                           {product.sizes
