@@ -68,6 +68,20 @@ def get_allowed_origins() -> list[str]:
     return origins
 
 
+def get_allowed_origin_regex() -> str:
+    return (
+        os.getenv(
+            "ALLOWED_ORIGIN_REGEX",
+            (
+                r"^https://"
+                r"(?:[a-z0-9-]+\.)?"
+                r"sal-y-sol-swim\.pages\.dev$"
+            ),
+        )
+        .strip()
+    )
+
+
 # =========================================================
 # DATABASE
 # =========================================================
@@ -877,6 +891,10 @@ app.add_middleware(
 
     allow_origins=(
         get_allowed_origins()
+    ),
+
+    allow_origin_regex=(
+        get_allowed_origin_regex()
     ),
 
     allow_credentials=True,
