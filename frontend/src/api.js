@@ -1,83 +1,121 @@
-import {
-  Navigate,
-  Route,
-  Routes,
-} from "react-router-dom";
+import { API_URL } from "./config";
 
-import Navbar from "./components/Navbar";
+function buildUrl(path) {
+  const base = API_URL.replace(/\/$/, "");
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${base}${normalizedPath}`;
+}
 
-import Home from "./pages/Home";
-import Store from "./pages/Store";
-import Cart from "./pages/Cart";
-import Contact from "./pages/Contact";
-import ViewProduct from "./pages/ViewProduct";
+async function apiRequest(path, options = {}) {
+  const response = await fetch(buildUrl(path), options);
 
+  let data = null;
 
-function App() {
-  return (
-    <div className="app">
-      <Navbar />
+  try {
+    data = await response.json();
+  } catch {
+    data = null;
+  }
 
-      <main>
-        <Routes>
-          <Route
-            path="/"
-            element={<Home />}
-          />
+  if (!response.ok) {
+    const message =
+      data?.detail ||
+      data?.message ||
+      `Request failed with status ${response.status}`;
 
-          <Route
-            path="/tienda"
-            element={<Store />}
-          />
+    throw new Error(
+      typeof message === "string"
+        ? message
+        : JSON.stringify(message)
+    );
+  }
 
-          <Route
-            path="/producto/:productId"
-            element={<ViewProduct />}
-          />
+  return data;
+}
 
-          <Route
-            path="/carrito"
-            element={<Cart />}
-          />
+function adminHeaders(adminKey, extraHeaders = {}) {
+  return {
+    "X-Admin-Key": adminKey,
+    ...extraHeaders,
+  };
+}
 
-          <Route
-            path="/contacto"
-            element={<Contact />}
-          />
+export async function getProducts(featured) {
+  const params = new URLSearchParams();
 
-          <Route
-            path="*"
-            element={
-              <Navigate
-                to="/"
-                replace
-              />
-            }
-          />
-        </Routes>
-      </main>
+  if (typeof featured === "boolean") {
+    params.set("featured", String(featured));
+  }
 
+  const query = params.toString();
 
-      <footer>
-        <div>
-          <strong>
-            Sal y Sol Swim
-          </strong>
-
-          <p>
-            República Dominicana
-          </p>
-        </div>
-
-        <p>
-          ©{" "}
-          {new Date().getFullYear()}{" "}
-          Sal y Sol Swim
-        </p>
-      </footer>
-    </div>
+  return apiRequest(
+    `/products${query ? `?${query}` : ""}`
   );
 }
 
+export async function getProduct(productId) {
+  return apiRequest(
+    `/products/${encodeURIComponent(productId)}`
+  );
+}
 
-export default App;
+export async function checkAdminKey(adminKey) {
+  return apiRequest("/admin/check", {
+    headers: adminHeaders(adminKey),
+  });
+}
+
+export async function getAdminProducts(adminKey) {
+  return apiRequest("/admin/products", {
+    headers: adminHeaders(adminKey),
+  });
+}
+
+export async function createProduct(payload, adminKey) {
+  return apiRequest("/products", {
+    method: "POST",
+    headers: adminHeaders(adminKey, {
+      "Content-Type": "application/json",
+    }),
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateProduct(
+  productId,
+  payload,
+  adminKey
+) {
+  return apiRequest(
+    `/products/${encodeURIComponent(productId)}`,
+    {
+      method: "PUT",
+      headers: adminHeaders(adminKey, {
+        "Content-Type": "application/json",
+      }),
+      body: JSON.stringify(payload),
+    }
+  );
+}
+
+export async function deleteProduct(productId, adminKey) {
+  return apiRequest(
+    `/products/${encodeURIComponent(productId)}`,
+    {
+      method: "DELETE",
+      headers: adminHeaders(adminKey),
+    }
+  );
+}
+
+export async function uploadImage(file, adminKey) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  return apiRequest("/admin/upload-image", {
+    method: "POST",
+    headers: adminHeaders(adminKey),
+    body: formData,
+  });
+}
